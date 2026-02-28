@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ultimate Online Quiz 🔥</title>
+
+<style>
+body{
+    font-family: Arial;
+    background: linear-gradient(135deg,#141e30,#243b55);
+    color:white;
+    text-align:center;
+    padding:20px;
+}
+#box{
+    max-width:700px;
+    margin:auto;
+    background:rgba(0,0,0,0.6);
+    padding:20px;
+    border-radius:15px;
+}
+button{
+    width:100%;
+    padding:10px;
+    margin:6px 0;
+    font-size:15px;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+}
+#topBar{
+    display:flex;
+    justify-content:space-between;
+    margin-bottom:15px;
+}
+input{
+    padding:8px;
+    width:80%;
+    border-radius:8px;
+    border:none;
+    margin-bottom:10px;
+}
+#leaderboard{
+    margin-top:20px;
+    text-align:left;
+}
+</style>
+</head>
+<body>
+
+<h1>Ultimate Online Quiz 🔥</h1>
+
+<div id="box">
+
+<div id="startScreen">
+<input type="text" id="playerName" placeholder="შეიყვანე შენი სახელი">
+<button onclick="startGame()">დაწყება</button>
+</div>
+
+<div id="gameScreen" style="display:none;">
+<div id="topBar">
+<div>👤 <span id="nameDisplay"></span></div>
+<div>❤️ <span id="lives">3</span></div>
+<div>⏳ <span id="time">20</span></div>
+</div>
+
+<h2 id="question"></h2>
+<div id="answers"></div>
+<h3 id="result"></h3>
+
+<div id="leaderboard">
+<h3>🌍 ONLINE TOP 5</h3>
+<ol id="topList"></ol>
+</div>
+
+</div>
+</div>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+/* 🔥 ჩასვი შენი ნამდვილი Firebase config */
+const firebaseConfig = {
+  apiKey: "PASTE_YOUR_API_KEY",
+  authDomain: "leaderboard-892d5.firebaseapp.com",
+  databaseURL: "https://leaderboard-892d5-default-rtdb.firebaseio.com/",
+  projectId: "leaderboard-892d5",
+  storageBucket: "leaderboard-892d5.appspot.com",
+  messagingSenderId: "PASTE_YOUR_ID",
+  appId: "PASTE_YOUR_APP_ID"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const leaderboardRef = ref(db, "leaderboard");
+
+const questions=[
+{q:"Binary 1111 = ?",a:["12","14","15","16"],c:2},
+{q:"რომელ წელს გამოვიდა JavaScript?",a:["1995","2000","1998","1990"],c:0},
+{q:"π დაახლოებით რამდენია?",a:["3.14","2.14","3.41","3.04"],c:0},
+{q:"CPU რას ნიშნავს?",a:["Central Process Unit","Central Processing Unit","Control Unit","Computer Unit"],c:1},
+{q:"რომელია ყველაზე ღრმა ოკეანის ადგილი?",a:["Mariana Trench","Atlantic Deep","Bermuda","Pacific Hole"],c:0}
+];
+
+let current=0;
+let score=0;
+let lives=3;
+let time=20;
+let timer;
+let player="";
+
+window.startGame = function(){
+    player=document.getElementById("playerName").value;
+    if(player===""){alert("შეიყვანე სახელი");return;}
+    document.getElementById("startScreen").style.display="none";
+    document.getElementById("gameScreen").style.display="block";
+    document.getElementById("nameDisplay").innerText=player;
+    loadQuestion();
+    loadOnlineLeaderboard();
+}
+
+function startTimer(){
+    time=20;
+    document.getElementById("time").innerText=time;
+    timer=setInterval(()=>{
+        time--;
+        document.getElementById("time").innerText=time;
+        if(time<=0){
+            clearInterval(timer);
+            loseLife();
+        }
+    },1000);
+}
+
+function loadQuestion(){
+    if(current>=questions.length || lives<=0){
+        endGame();
+        return;
+    }
+    document.getElementById("lives").innerText=lives;
+    let q=questions[current];
+    document.getElementById("question").innerText=q.q;
+    let answersDiv=document.getElementById("answers");
+    answersDiv.innerHTML="";
+    q.a.forEach((ans,i)=>{
+        let btn=document.createElement("button");
+        btn.innerText=ans;
+        btn.onclick=()=>checkAnswer(i);
+        answersDiv.appendChild(btn);
+    });
+    startTimer();
+}
+
+function checkAnswer(i){
+    clearInterval(timer);
+    if(i===questions[current].c){
+        score++;
+        document.getElementById("result").innerText="სწორია ✅";
+    }else{
+        document.getElementById("result").innerText="არასწორია ❌";
+        loseLife();
+        return;
+    }
+    current++;
+    setTimeout(loadQuestion,1000);
+}
+
+function loseLife(){
+    lives--;
+    current++;
+    loadQuestion();
+}
+
+function endGame(){
+    push(leaderboardRef,{
+        name:player,
+        score:score
+    });
+    document.getElementById("question").innerText="თამაში დასრულდა 🎉";
+    document.getElementById("answers").innerHTML="";
+    document.getElementById("result").innerText="შენი ქულა: "+score;
+}
+
+function loadOnlineLeaderboard(){
+    onValue(leaderboardRef,(snapshot)=>{
+        let data=snapshot.val();
+        let list=document.getElementById("topList");
+        list.innerHTML="";
+        if(!data) return;
+        let players=Object.values(data);
+        players.sort((a,b)=>b.score-a.score);
+        players=players.slice(0,5);
+        players.forEach(p=>{
+            let li=document.createElement("li");
+            li.innerText=p.name+" - "+p.score;
+            list.appendChild(li);
+        });
+    });
+}
+
+</script>
+</body>
+</html>
